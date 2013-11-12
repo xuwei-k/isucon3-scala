@@ -3,7 +3,7 @@
 ## Build & Run ##
 
 ```sh
-$ cd isucon
+$ cd isucon3-scala
 $ ./sbt
 > container:start
 > browse
