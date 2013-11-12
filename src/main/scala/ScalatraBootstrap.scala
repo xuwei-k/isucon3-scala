@@ -1,4 +1,4 @@
-import com.github.m0t0k1ch1._
+import com.github.m0t0k1ch1.isucon._
 import org.scalatra._
 import javax.servlet.ServletContext
 

@@ -1,4 +1,4 @@
-package com.github.m0t0k1ch1
+package com.github.m0t0k1ch1.isucon
 
 import org.scalatra._
 
@@ -118,7 +118,7 @@ trait SlickSupport extends ScalatraServlet
   }
 }
 
-class Isucon extends ScalatraServlet with SlickSupport with JacksonJsonSupport
+class Isucon extends IsuconStack with SlickSupport with JacksonJsonSupport
 {
   protected implicit val jsonFormats: Formats = DefaultFormats
 
@@ -133,5 +133,10 @@ class Isucon extends ScalatraServlet with SlickSupport with JacksonJsonSupport
   }
 
   get("/") {
+    val dir    = new File("./src/main/webapp").getAbsolutePath()
+    val file   = dir + "/index.html"
+    val source = FileUtils.readFileToString(new File(file))
+    contentType = "text/html"
+    source
   }
 }
