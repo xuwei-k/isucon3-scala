@@ -9,8 +9,14 @@ import com.mchange.v2.c3p0.ComboPooledDataSource
 import scala.slick.driver.MySQLDriver.simple._
 import Database.threadLocalSession
 
+import scala.util.parsing.json.JSON
 import org.json4s.{DefaultFormats, Formats}
 import org.scalatra.json._
+
+import java.sql.Timestamp
+
+import java.io.File
+import org.apache.commons.io.FileUtils
 
 case class User(
   id:      Int,
@@ -34,7 +40,7 @@ case class Entry(
   user:          Int,
   image:         String,
   publish_level: Int,
-  created_at:    java.sql.Timestamp
+  created_at:    Timestamp
 )
 object Entries extends Table[Entry]("entries")
 {
@@ -42,7 +48,7 @@ object Entries extends Table[Entry]("entries")
   def user          = column[Int]("user")
   def image         = column[String]("image")
   def publish_level = column[Int]("publish_level", O.Default(0))
-  def created_at    = column[java.sql.Timestamp]("created_at", O.DBType("datetime"))
+  def created_at    = column[Timestamp]("created_at", O.DBType("datetime"))
 
   def * = id ~ user ~ image ~ publish_level ~ created_at <> (Entry, Entry.unapply _)
   def idx = index("entries_user", user)
@@ -51,13 +57,13 @@ object Entries extends Table[Entry]("entries")
 case class FollowMap(
   user:       Int,
   target:     Int,
-  created_at: java.sql.Timestamp
+  created_at: Timestamp
 )
 object FollowMaps extends Table[FollowMap]("follow_map")
 {
   def user       = column[Int]("user")
   def target     = column[Int]("target")
-  def created_at = column[java.sql.Timestamp]("created_at", O.DBType("datetime"))
+  def created_at = column[Timestamp]("created_at", O.DBType("datetime"))
 
   def * = user ~ target ~ created_at <> (FollowMap, FollowMap.unapply _)
   def pk = primaryKey("follow_map_pk", (user, target))
@@ -81,7 +87,32 @@ trait SlickSupport extends ScalatraServlet
     cpds.close
   }
 
-  val db = Database.forDataSource(cpds)
+  val env = {
+    val isuconEnv = Option(System.getenv("ISUCON_ENV")).getOrElse("local")
+    logger.info("ISUCON_ENV: " + isuconEnv)
+    isuconEnv
+  }
+
+  val (dbConfig, dataDir) = {
+    val dir       = new File("./src/main/resources").getAbsolutePath()
+    val file      = dir + "/" + env + ".json"
+    val source    = FileUtils.readFileToString(new File(file))
+    val appConfig = JSON.parseFull(source).get.asInstanceOf[Map[String, Any]]
+    (
+      appConfig.get("database").get.asInstanceOf[Map[String, Any]],
+      appConfig.apply("data_dir")
+    )
+  }
+
+  val db = {
+    Database.forURL(
+      "jdbc:mysql://" + dbConfig.apply("host") +
+        ":" + dbConfig.apply("port").asInstanceOf[Double].toInt +
+        "/" + dbConfig.apply("dbname"),
+      dbConfig.apply("username").asInstanceOf[String],
+      dbConfig.apply("password").asInstanceOf[String]
+    )
+  }
 
   override def destroy() {
     super.destroy()

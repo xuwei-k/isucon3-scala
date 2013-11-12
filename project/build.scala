@@ -34,7 +34,9 @@ object IsuconBuild extends Build {
         "mysql" % "mysql-connector-java" % "5.1.13",
 
         "org.scalatra" %% "scalatra-json" % "2.2.1",
-        "org.json4s"   %% "json4s-jackson" % "3.2.4"
+        "org.json4s"   %% "json4s-jackson" % "3.2.4",
+
+        "org.apache.directory.studio" % "org.apache.commons.io" % "2.4"
       ),
       scalateTemplateConfig in Compile <<= (sourceDirectory in Compile){ base =>
         Seq(
