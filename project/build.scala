@@ -2,6 +2,8 @@ import sbt._
 import Keys._
 import org.scalatra.sbt._
 import org.scalatra.sbt.PluginKeys._
+import com.mojolly.scalate.ScalatePlugin._
+import ScalateKeys._
 
 object IsuconBuild extends Build {
   val Organization = "com.github.m0t0k1ch1"
@@ -13,7 +15,7 @@ object IsuconBuild extends Build {
   lazy val project = Project (
     "isucon",
     file("."),
-    settings = Defaults.defaultSettings ++ ScalatraPlugin.scalatraWithJRebel ++ Seq(
+    settings = Defaults.defaultSettings ++ ScalatraPlugin.scalatraWithJRebel ++ scalateSettings ++ Seq(
       organization := Organization,
       name := Name,
       version := Version,
@@ -21,6 +23,7 @@ object IsuconBuild extends Build {
       resolvers += Classpaths.typesafeReleases,
       libraryDependencies ++= Seq(
         "org.scalatra" %% "scalatra" % ScalatraVersion,
+        "org.scalatra" %% "scalatra-scalate" % ScalatraVersion,
         "org.scalatra" %% "scalatra-specs2" % ScalatraVersion % "test",
         "ch.qos.logback" % "logback-classic" % "1.0.6" % "runtime",
         "org.eclipse.jetty" % "jetty-webapp" % "8.1.8.v20121106" % "container",
@@ -34,7 +37,19 @@ object IsuconBuild extends Build {
         "org.json4s"   %% "json4s-jackson" % "3.2.4",
 
         "org.apache.directory.studio" % "org.apache.commons.io" % "2.4"
-      )
+      ),
+      scalateTemplateConfig in Compile <<= (sourceDirectory in Compile){ base =>
+        Seq(
+          TemplateConfig(
+            base / "webapp" / "WEB-INF" / "templates",
+            Seq.empty,  /* default imports should be added here */
+            Seq(
+              Binding("context", "_root_.org.scalatra.scalate.ScalatraRenderContext", importMembers = true, isImplicit = true)
+            ),  /* add extra bindings here */
+            Some("templates")
+          )
+        )
+      }
     )
   )
 }
