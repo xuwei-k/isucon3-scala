@@ -133,5 +133,6 @@ class Isucon extends ScalatraServlet with SlickSupport with JacksonJsonSupport
   }
 
   get("/") {
+    contentType = "text/html"
   }
 }
