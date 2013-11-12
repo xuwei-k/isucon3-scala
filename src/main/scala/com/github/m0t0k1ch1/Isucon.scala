@@ -104,15 +104,13 @@ trait SlickSupport extends ScalatraServlet
     )
   }
 
-  val db = {
-    Database.forURL(
-      "jdbc:mysql://" + dbConfig.apply("host") +
-        ":" + dbConfig.apply("port").asInstanceOf[Double].toInt +
-        "/" + dbConfig.apply("dbname"),
-      dbConfig.apply("username").asInstanceOf[String],
-      dbConfig.apply("password").asInstanceOf[String]
-    )
-  }
+  val db = Database.forURL(
+    "jdbc:mysql://" + dbConfig.apply("host") +
+      ":" + dbConfig.apply("port").asInstanceOf[Double].toInt +
+      "/" + dbConfig.apply("dbname"),
+    dbConfig.apply("username").asInstanceOf[String],
+    dbConfig.apply("password").asInstanceOf[String]
+  )
 
   override def destroy() {
     super.destroy()
