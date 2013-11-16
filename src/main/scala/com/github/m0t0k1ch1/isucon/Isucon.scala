@@ -20,7 +20,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
 {
   protected implicit val jsonFormats: Formats = DefaultFormats
 
-  val db: Database
+  val db:      Database
   val dataDir: String
 
   before() {
