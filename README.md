@@ -8,7 +8,14 @@ a copy of the application used at ISUCON3 final, built with Scalatra
 $ cd isucon3-scala
 $ ./sbt
 > container:start
-> browse
 ```
 
-If `browse` doesn't launch your browser, manually open [http://localhost:8080/](http://localhost:8080/) in your browser.
+before you open the applicatin, you have to create tables
+
+- Create Tables
+[http://localhost:8080/db/create-tables](http://localhost:8080/db/create-tables)
+
+then, you can open the application
+
+- Index
+[http://localhost:8080](http://localhost:8080)
