@@ -62,7 +62,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
 
   post("/signup") {
     db withSession {
-      val name  = params("name")
+      val name = params("name")
       if (!isValidUserName(name)) halt(400)
 
       val api_key = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
