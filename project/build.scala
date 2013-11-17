@@ -36,7 +36,8 @@ object IsuconBuild extends Build {
         "org.scalatra" %% "scalatra-json" % "2.2.1",
         "org.json4s"   %% "json4s-jackson" % "3.2.4",
 
-        "org.apache.directory.studio" % "org.apache.commons.io" % "2.4"
+        "org.apache.directory.studio" % "org.apache.commons.io" % "2.4",
+        "commons-codec" % "commons-codec" % "1.6"
       ),
       scalateTemplateConfig in Compile <<= (sourceDirectory in Compile) { base =>
         Seq(

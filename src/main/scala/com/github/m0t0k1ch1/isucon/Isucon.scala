@@ -14,6 +14,8 @@ import org.scalatra.json._
 import java.io.File
 import org.apache.commons.io.FileUtils
 
+import org.apache.commons.codec.digest.DigestUtils
+
 case class Isucon(db: Database, dataDir: String) extends ScalatraServlet with IsuconRoutes
 
 trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
@@ -22,6 +24,23 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
 
   val db:      Database
   val dataDir: String
+
+  def uriFor(path: String): String = {
+    val scheme = request.getScheme
+    val host = Option(request.getHeader("X-FORWARDED-HOST")) match {
+      case Some(v) => v
+      case None    => request.getHeader("HOST")
+    }
+    s"${scheme}://${host}${path}"
+  }
+
+  def isValidUserName(name: String): Boolean = {
+    val regex = """[0-9a-zA-Z_]{2,16}""".r
+    name match {
+      case regex() => true
+      case _       => false
+    }
+  }
 
   before() {
     contentType = formats("json")
@@ -39,5 +58,19 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
     val source = FileUtils.readFileToString(new File(file))
     contentType = "text/html"
     source
+  }
+
+  post("/signup") {
+    db withSession {
+      val name  = params("name")
+      if (!isValidUserName(name)) halt(400)
+
+      val api_key = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
+
+      val id   = Users.autoInc.insert(name, api_key, "default")
+      val user = Query(Users).filter(_.id === id).firstOption.get
+
+      User(user.id, user.name, uriFor("/icon/" + user.icon), user.api_key)
+    }
   }
 }
