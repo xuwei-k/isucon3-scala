@@ -5,12 +5,12 @@ import scala.slick.driver.MySQLDriver.simple._
 
 object Users extends Table[User]("users")
 {
-  def id      = column[Int]("id", O.PrimaryKey, O.AutoInc)
-  def name    = column[String]("name")
-  def api_key = column[String]("api_key")
-  def icon    = column[String]("icon", O.Default("default"))
+  def id     = column[Int]("id", O.PrimaryKey, O.AutoInc)
+  def name   = column[String]("name")
+  def apiKey = column[String]("api_key")
+  def icon   = column[String]("icon", O.Default("default"))
 
-  def * = id.? ~ name ~ api_key ~ icon <> (User, User.unapply _)
-  def autoInc = name ~ api_key ~ icon returning id
-  def idx = index("users_api_key", api_key, unique = true)
+  def * = id.? ~ name ~ apiKey ~ icon <> (User, User.unapply _)
+  def autoInc = name ~ apiKey ~ icon returning id
+  def idx = index("users_api_key", apiKey, unique = true)
 }
