@@ -28,7 +28,7 @@ class ScalatraBootstrap extends LifeCycle
     val (dbConfig, dataDir) = {
       val dir       = new File("./src/main/resources").getAbsolutePath()
       val file      = dir + "/" + env + ".json"
-      val source    = FileUtils.readFileToString(new File(file))
+      val source    = FileUtils.readFileToString(new File(file), "utf-8")
       val appConfig = JSON.parseFull(source).get.asInstanceOf[Map[String, Any]]
       (
         appConfig.get("database").get.asInstanceOf[Map[String, Any]],

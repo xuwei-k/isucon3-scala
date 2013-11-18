@@ -67,7 +67,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
   get("/") {
     val dir    = new File("./src/main/webapp").getAbsolutePath()
     val file   = s"${dir}/index.html"
-    val source = FileUtils.readFileToString(new File(file))
+    val source = FileUtils.readFileToString(new File(file), "utf-8")
     contentType = "text/html"
     source
   }
