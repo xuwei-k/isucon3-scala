@@ -25,6 +25,8 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
   val db:      Database
   val dataDir: String
 
+  var currentUser: Option[User] = None
+
   def uriFor(path: String): String = {
     val scheme = request.getScheme
     val host = Option(request.getHeader("X-FORWARDED-HOST")) match {
@@ -35,7 +37,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
   }
 
   def isValidUserName(name: String): Boolean = {
-    val regex = """[0-9a-zA-Z_]{2,16}""".r
+    val regex = """^[0-9a-zA-Z_]{2,16}$""".r
     name match {
       case regex() => true
       case _       => false
@@ -44,6 +46,16 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
 
   before() {
     contentType = formats("json")
+  }
+
+  before("""^\/(me)""".r) {
+    db withSession {
+      val apiKey = Option(request.getHeader("X-API-KEY")) match {
+        case Some(v) => v
+        case None    => request.getCookies.filter(_.getName == "api_key").head.getValue
+      }
+      currentUser = Option(Query(Users).filter(_.apiKey === apiKey).firstOption.get)
+    }
   }
 
   get("/db/create-tables") {
@@ -65,12 +77,30 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
       val name = params("name")
       if (!isValidUserName(name)) halt(400)
 
-      val api_key = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
+      val apiKey = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
 
-      val id   = Users.autoInc.insert(name, api_key, "default")
+      val id   = Users.autoInc.insert(name, apiKey, "default")
       val user = Query(Users).filter(_.id === id).firstOption.get
 
-      User(user.id, user.name, uriFor("/icon/" + user.icon), user.api_key)
+      case class Result (
+        id:      Int,
+        name:    String,
+        icon:    String,
+        api_key: String
+      )
+      new Result(user.id.get, user.name, uriFor("/icon/" + user.icon), user.apiKey)
+    }
+  }
+
+  get("/me") {
+    db withSession {
+      val user = currentUser.get
+      case class Result (
+        id:   Int,
+        name: String,
+        icon: String
+      )
+      new Result(user.id.get, user.name, uriFor("/icon/" + user.icon))
     }
   }
 }
