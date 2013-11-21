@@ -5,6 +5,9 @@ import com.github.m0t0k1ch1.isucon.schema._
 
 import org.scalatra._
 import org.scalatra.json._
+import org.scalatra.servlet.{FileUploadSupport, MultipartConfig, SizeConstraintExceededException}
+
+import org.slf4j.LoggerFactory
 
 import scala.slick.driver.MySQLDriver.simple._
 import Database.threadLocalSession
@@ -13,14 +16,15 @@ import java.io.File
 import org.apache.commons.io.FileUtils
 import org.apache.commons.codec.digest.DigestUtils
 import org.json4s.{DefaultFormats, Formats}
-import org.slf4j.LoggerFactory
 import scala.sys.process.Process
 
 case class Isucon(db: Database, dataDir: String) extends ScalatraServlet with IsuconRoutes
 
-trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
+trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSupport
 {
   protected implicit val jsonFormats: Formats = DefaultFormats
+
+  configureMultipartHandling(MultipartConfig(maxFileSize = Some(3*1024*1024)))
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -37,8 +41,6 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
   val imageM: Option[Int] = Option(256)
   val imageL: Option[Int] = None
 
-  var currentUser: Option[User] = None
-
   def convert(orig: String, ext: String, w: Int, h: Int): Array[Byte] = {
     val file        = File.createTempFile("ISUCON", "")
     val fileName    = file.getPath
@@ -48,6 +50,31 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
     new File(fileName).delete
     new File(newFileName).delete
     newFile
+  }
+
+  def cropSquare(orig: String, ext: String): String = {
+    val sizes = size(orig)
+    val cropSizes = sizes match {
+      case (w, h) if w > h => (h, ((w - h) / 2).floor.toInt, 0)
+      case (w, h) if w < h => (w, 0, ((h - w) / 2).floor.toInt)
+      case (w, h)          => (w, 0, 0)
+    }
+    val pixels = cropSizes._1
+    val cropX  = cropSizes._2
+    val cropY  = cropSizes._3
+
+    val newFileName = s"${orig}.${ext}"
+
+    Process(s"convert -crop ${pixels}x${pixels}+${cropX}+${cropY} ${orig} ${newFileName}") !;
+    new File(orig).delete
+    newFileName
+  }
+
+  def size(fileName: String): (Int, Int) = {
+    val identity   = Process(s"identify ${fileName}") !!
+    val identities = identity.split(" +")
+    val sizes      = identities(2).split("x")
+    (sizes(0).toInt, sizes(1).toInt)
   }
 
   def uriFor(path: String): String = {
@@ -67,18 +94,30 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
     }
   }
 
-  before() {
-    contentType = formats("json")
+  def isValidContentType(contentType: String): Boolean = {
+    val regex = """^image/jpe?g|image/png$""".r
+    contentType match {
+      case regex() => true
+      case _       => false
+    }
   }
 
-  before("""^\/(me)""".r) {
+  def getUser: Option[User] = {
     db withSession {
       val apiKey = Option(request.getHeader("X-API-KEY")) match {
-        case Some(v) => v
-        case None    => request.getCookies.filter(_.getName == "api_key").head.getValue
+        case Some(v) => Option(v)
+        case None    => cookies.get("api_key")
       }
-      currentUser = Option(Query(Users).filter(_.apiKey === apiKey).firstOption.get)
+      val user = apiKey match {
+        case Some(v) => Query(Users).filter(_.apiKey === v).firstOption
+        case None    => None
+      }
+      user
     }
+  }
+
+  before() {
+    contentType = formats("json")
   }
 
   get("/db/create-tables") {
@@ -117,7 +156,10 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
 
   get("/me") {
     db withSession {
-      val user = currentUser.get
+      val userContainer = getUser
+      if (userContainer.isEmpty) halt(400)
+
+      val user = userContainer.get
       case class Result (
         id:   Int,
         name: String,
@@ -148,6 +190,37 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport
 
       contentType = "image/png"
       data
+    }
+  }
+
+  post("/icon") {
+    db withSession {
+      val userContainer = getUser
+      if (userContainer.isEmpty) halt(400)
+
+      val user = userContainer.get
+
+      val uploadContainer = Option(fileParams("image"))
+      if (uploadContainer.isEmpty) halt(400)
+
+      val upload = uploadContainer.get
+      if (!isValidContentType(upload.getContentType.get)) halt(400)
+
+      val file = File.createTempFile("ISUCON", "")
+      upload.write(file)
+      val fileName = cropSquare(file.getPath, "png")
+
+      val icon = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
+      if (!new File(fileName).renameTo(new File(s"${dataDir}/icon/${icon}.png"))) halt(500)
+
+      val userIcon = for {
+        u <- Users
+        if u.id === user.id.get
+      } yield u.icon
+      userIcon.update(icon)
+
+      case class Result(icon: String)
+      new Result(uriFor(s"/icon/${icon}"))
     }
   }
 }
