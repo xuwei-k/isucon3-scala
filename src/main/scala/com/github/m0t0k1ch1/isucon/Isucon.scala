@@ -64,7 +64,6 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     val cropY  = cropSizes._3
 
     val newFileName = s"${orig}.${ext}"
-
     Process(s"convert -crop ${pixels}x${pixels}+${cropX}+${cropY} ${orig} ${newFileName}") !;
     new File(orig).delete
     newFileName
