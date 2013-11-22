@@ -151,15 +151,10 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
       val apiKey = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
 
-      val id   = Users.autoInc.insert(name, apiKey, "default")
-      val user = Query(Users).filter(_.id === id).firstOption.get
+      val userId = Users.autoInc.insert(name, apiKey, "default")
+      val user   = Query(Users).filter(_.id === userId).firstOption.get
 
-      case class Result (
-        id:      Int,
-        name:    String,
-        icon:    String,
-        api_key: String
-      )
+      case class Result (id: Int, name:String, icon: String, api_key: String)
       new Result(user.id.get, user.name, uriFor("/icon/" + user.icon), user.apiKey)
     }
   }
@@ -170,11 +165,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       if (userContainer.isEmpty) halt(400)
 
       val user = userContainer.get
-      case class Result (
-        id:   Int,
-        name: String,
-        icon: String
-      )
+      case class Result (id: Int, name: String, icon: String)
       new Result(user.id.get, user.name, uriFor("/icon/" + user.icon))
     }
   }
