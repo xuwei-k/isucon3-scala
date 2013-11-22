@@ -63,9 +63,12 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     val cropX  = cropSizes._2
     val cropY  = cropSizes._3
 
-    val newFileName = s"${orig}.${ext}"
+    val file     = File.createTempFile("ISUCON", "")
+    val fileName = file.getPath
+    new File(fileName).delete
+
+    val newFileName = s"${fileName}.${ext}"
     Process(s"convert -crop ${pixels}x${pixels}+${cropX}+${cropY} ${orig} ${newFileName}") !;
-    new File(orig).delete
     newFileName
   }
 
@@ -93,8 +96,16 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
-  def isValidContentType(contentType: String): Boolean = {
+  def isJpgOrPng(contentType: String): Boolean = {
     val regex = """^image/jpe?g|image/png$""".r
+    contentType match {
+      case regex() => true
+      case _       => false
+    }
+  }
+
+  def isJpg(contentType: String): Boolean = {
+    val regex = """^image/jpe?g$""".r
     contentType match {
       case regex() => true
       case _       => false
@@ -203,7 +214,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       if (uploadContainer.isEmpty) halt(400)
 
       val upload = uploadContainer.get
-      if (!isValidContentType(upload.getContentType.get)) halt(400)
+      if (!isJpgOrPng(upload.getContentType.get)) halt(400)
 
       val file = File.createTempFile("ISUCON", "")
       upload.write(file)
