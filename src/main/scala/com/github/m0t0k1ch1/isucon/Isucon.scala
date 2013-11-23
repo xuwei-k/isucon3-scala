@@ -10,7 +10,9 @@ import org.scalatra.servlet.{FileItem, FileUploadSupport, MultipartConfig, SizeC
 import org.slf4j.LoggerFactory
 
 import scala.slick.driver.MySQLDriver.simple._
+import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 import Database.threadLocalSession
+import Q.interpolation
 
 import java.io.File
 import java.sql.Timestamp
@@ -192,6 +194,12 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
+  def deleteFollowMapByUserAndTarget(user: Int, target: Int): Int = {
+    db withSession {
+      Query(FollowMaps).filter(_.user === user).filter(_.target === target).delete
+    }
+  }
+
   def getUpload(name: String): FileItem = {
     val uploadContainer = Option(fileParams(name))
     if (uploadContainer.isEmpty) halt(400)
@@ -216,6 +224,13 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     val userContainer = getUserContainer
     if (userContainer.isEmpty) halt(400)
     userContainer.get
+  }
+
+  def getFollowings(user: Int): List[User] = {
+    db withSession {
+      implicit val getUserResult = GetResult(r => User(r.<<, r.<<, r.<<, r.<<))
+      sql"SELECT users.* FROM follow_map JOIN users ON (follow_map.target = users.id) WHERE follow_map.user = ${user} ORDER BY follow_map.created_at DESC".as[User].list
+    }
   }
 
   before() {
@@ -393,6 +408,64 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
       contentType = "image/jpeg"
       source
+    }
+  }
+
+  get("/follow") {
+    val user = getUser
+
+    case class ResultUser(id: Int, name: String, icon: String)
+    case class Result(users: List[ResultUser])
+
+    val resultUsers = for (
+      user <-getFollowings(user.id)
+    ) yield ResultUser(user.id, user.name, uriFor("/icon/" + user.icon))
+    new Result(resultUsers)
+  }
+
+  post("/follow") {
+    db withSession {
+      val user = getUser
+
+      val targetsContainer = multiParams.get("target")
+      if (!targetsContainer.isEmpty) {
+        for (target <- targetsContainer.get) {
+          if (!toInt(target).isEmpty) {
+            FollowMaps.insert(FollowMap(user.id, target.toInt, now))
+          }
+        }
+      }
+
+      case class ResultUser(id: Int, name: String, icon: String)
+      case class Result(users: List[ResultUser])
+
+      val resultUsers = for (
+        user <-getFollowings(user.id)
+      ) yield ResultUser(user.id, user.name, uriFor("/icon/" + user.icon))
+      new Result(resultUsers)
+    }
+  }
+
+  post("/unfollow") {
+    db withSession {
+      val user = getUser
+
+      val targetsContainer = multiParams.get("target")
+      if (!targetsContainer.isEmpty) {
+        for (target <- targetsContainer.get) {
+          if (!toInt(target).isEmpty) {
+            deleteFollowMapByUserAndTarget(user.id, target.toInt)
+          }
+        }
+      }
+
+      case class ResultUser(id: Int, name: String, icon: String)
+      case class Result(users: List[ResultUser])
+
+      val resultUsers = for (
+        user <-getFollowings(user.id)
+      ) yield ResultUser(user.id, user.name, uriFor("/icon/" + user.icon))
+      new Result(resultUsers)
     }
   }
 }
