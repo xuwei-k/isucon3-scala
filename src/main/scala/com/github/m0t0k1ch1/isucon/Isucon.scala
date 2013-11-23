@@ -37,19 +37,35 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
   val iconS: Int = 32
   val iconM: Int = 64
   val iconL: Int = 128
-  val imageS: Option[Int] = Option(128)
-  val imageM: Option[Int] = Option(256)
+  val imageS: Option[Int] = Some(128)
+  val imageM: Option[Int] = Some(256)
   val imageL: Option[Int] = None
+
+  def toInt(string: String): Option[Int] = {
+    try {
+      Some(string.toInt)
+    } catch {
+      case e: Exception => None
+    }
+  }
+
+  def size(fileName: String): (Int, Int) = {
+    val identity   = Process(s"identify ${fileName}") !!
+    val identities = identity.split(" +")
+    val sizes      = identities(2).split("x")
+    (toInt(sizes(0)).getOrElse(0), toInt(sizes(1)).getOrElse(0))
+  }
 
   def convert(orig: String, ext: String, w: Int, h: Int): Array[Byte] = {
     val file        = File.createTempFile("ISUCON", "")
     val fileName    = file.getPath
     val newFileName = s"${fileName}.${ext}"
     Process(s"convert -geometry ${w}x${h} ${orig} ${newFileName}") !
-    val newFile = FileUtils.readFileToByteArray(new File(newFileName))
-    new File(fileName).delete
-    new File(newFileName).delete
-    newFile
+    val newFile = new File(newFileName)
+    val data    = FileUtils.readFileToByteArray(newFile)
+    file.delete
+    newFile.delete
+    data
   }
 
   def cropSquare(orig: String, ext: String): String = {
@@ -65,18 +81,24 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
     val file     = File.createTempFile("ISUCON", "")
     val fileName = file.getPath
-    new File(fileName).delete
+    file.delete
 
     val newFileName = s"${fileName}.${ext}"
     Process(s"convert -crop ${pixels}x${pixels}+${cropX}+${cropY} ${orig} ${newFileName}") !;
     newFileName
   }
 
-  def size(fileName: String): (Int, Int) = {
-    val identity   = Process(s"identify ${fileName}") !!
-    val identities = identity.split(" +")
-    val sizes      = identities(2).split("x")
-    (sizes(0).toInt, sizes(1).toInt)
+  def cropAndConvert(orig: String, ext: String, w: Int, h: Int): Array[Byte] = {
+    val newFileName = cropSquare(orig, ext)
+    val data        = convert(newFileName, ext, w, h)
+    new File(newFileName).delete
+    data
+  }
+
+  def fileData(fileName: String): Array[Byte] = {
+    val file = new File(fileName)
+    if (!file.exists) halt(500)
+    FileUtils.readFileToByteArray(file)
   }
 
   def uriFor(path: String): String = {
@@ -112,10 +134,27 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
+  def isFollowing(user: Int, target: Int): Boolean = {
+    Query(FollowMaps).filter(_.user === user).filter(_.target === target).firstOption match {
+      case Some(v) => true
+      case None    => false
+    }
+  }
+
+  def canViewEntry(entry: Entry, userContainer: Option[User]): Boolean = {
+    entry.publishLevel match {
+      case 0 if !userContainer.isEmpty && entry.user == userContainer.get.id.get            => true
+      case 1 if !userContainer.isEmpty && entry.user == userContainer.get.id.get            => true
+      case 1 if !userContainer.isEmpty && isFollowing(userContainer.get.id.get, entry.user) => true
+      case 2 => true
+      case _ => false
+    }
+  }
+
   def getUser: Option[User] = {
     db withSession {
       val apiKey = Option(request.getHeader("X-API-KEY")) match {
-        case Some(v) => Option(v)
+        case Some(v) => Some(v)
         case None    => cookies.get("api_key")
       }
       val user = apiKey match {
