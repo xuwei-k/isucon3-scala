@@ -10,7 +10,7 @@ object Users extends Table[User]("users")
   def apiKey = column[String]("api_key")
   def icon   = column[String]("icon", O.Default("default"))
 
-  def * = id.? ~ name ~ apiKey ~ icon <> (User, User.unapply _)
+  def * = id ~ name ~ apiKey ~ icon <> (User, User.unapply _)
   def autoInc = name ~ apiKey ~ icon returning id
   def idx = index("users_api_key", apiKey, unique = true)
 }
