@@ -162,6 +162,14 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
+  def updateUserIcon(id: Int, icon: String): Int = {
+    val userIcon = for {
+      u <- Users
+      if u.id === id
+    } yield u.icon
+    userIcon.update(icon)
+  }
+
   def getEntryContainerById(id: Int): Option[Entry] = {
     db withSession {
       Query(Entries).filter(_.id === id).firstOption
@@ -290,11 +298,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val icon = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
       if (!new File(fileName).renameTo(new File(s"${dataDir}/icon/${icon}.png"))) halt(500)
 
-      val userIcon = for {
-        u <- Users
-        if u.id === user.id
-      } yield u.icon
-      userIcon.update(icon)
+      updateUserIcon(user.id, icon)
 
       case class Result(icon: String)
       new Result(uriFor(s"/icon/${icon}"))
