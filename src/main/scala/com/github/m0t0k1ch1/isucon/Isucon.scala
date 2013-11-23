@@ -13,6 +13,7 @@ import scala.slick.driver.MySQLDriver.simple._
 import Database.threadLocalSession
 
 import java.io.File
+import java.sql.Timestamp
 import org.apache.commons.io.FileUtils
 import org.apache.commons.codec.digest.DigestUtils
 import org.json4s.{DefaultFormats, Formats}
@@ -262,6 +263,101 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
       case class Result(icon: String)
       new Result(uriFor(s"/icon/${icon}"))
+    }
+  }
+
+  post("/entry") {
+    db withSession {
+      val userContainer = getUser
+      if (userContainer.isEmpty) halt(400)
+
+      val user = userContainer.get
+
+      val uploadContainer = Option(fileParams("image"))
+      if (uploadContainer.isEmpty) halt(400)
+
+      val upload = uploadContainer.get
+      if (!isJpg(upload.getContentType.get)) halt(400)
+
+      val file = File.createTempFile("ISUCON", "")
+      upload.write(file)
+
+      val imageId = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
+      if (!file.renameTo(new File(s"${dataDir}/image/${imageId}.jpg"))) halt(500)
+
+      val publishLevel = toInt(params("publish_level"))
+      if (publishLevel.isEmpty) halt(500)
+
+      val now = new Timestamp(System.currentTimeMillis)
+
+      val entryId = Entries.autoInc.insert(user.id.get, imageId, publishLevel.get, now)
+      val entry   = Query(Entries).filter(_.id === entryId).firstOption.get
+
+      case class ResultUser(id: Int, name: String, icon: String)
+      case class ResultEntry(id: Int, image: String, publish_level: Int, user: ResultUser)
+      new ResultEntry(
+        entryId, uriFor("/image/" + entry.image), publishLevel.get,
+        new ResultUser(user.id.get, user.name, uriFor("/icon/" + user.icon))
+      )
+    }
+  }
+
+  post("/entry/:id") {
+    db withSession {
+      val userContainer = getUser
+      if (userContainer.isEmpty) halt(400)
+
+      val user = userContainer.get
+
+      if (params("__method") != "DELETE") halt(400)
+
+      val entryId        = toInt(params("id")).getOrElse(0)
+      val entryContainer = Query(Entries).filter(_.id === entryId).firstOption
+      if (entryContainer.isEmpty) halt(404)
+
+      val entry = entryContainer.get
+      if (entry.user != user.id.get) halt(400)
+
+      Query(Entries).filter(_.id === entryId).delete
+
+      case class Result(ok: Boolean)
+      new Result(true)
+    }
+  }
+
+  get("/image/:image") {
+    db withSession {
+      val userContainer = getUser
+
+      val image = params("image")
+      val size = params.get("size") match {
+        case Some(v) => v
+        case None    => "l"
+      }
+
+      val entryContainer = Query(Entries).filter(_.image === image).firstOption
+      if (entryContainer.isEmpty) halt(404)
+
+      val entry = entryContainer.get
+
+      if (!canViewEntry(entry, userContainer)) halt(404)
+
+      val w = size match {
+        case "s" => imageS
+        case "m" => imageM
+        case "l" => imageL
+        case _   => imageL
+      }
+      val h = w
+
+      val fileName = s"${dataDir}/image/${image}.jpg"
+      val data = w match {
+        case Some(v) => cropAndConvert(fileName, "jpg", w.get, h.get)
+        case None    => fileData(fileName)
+      }
+
+      contentType = "image/jpeg"
+      data
     }
   }
 }
