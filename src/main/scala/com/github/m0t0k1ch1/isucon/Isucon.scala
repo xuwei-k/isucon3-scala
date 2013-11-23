@@ -42,6 +42,10 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
   val imageM: Option[Int] = Some(256)
   val imageL: Option[Int] = None
 
+  def now: Timestamp = {
+    new Timestamp(System.currentTimeMillis)
+  }
+
   def toInt(string: String): Option[Int] = {
     try {
       Some(string.toInt)
@@ -323,8 +327,6 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val publishLevelContainer = toInt(params("publish_level"))
       if (publishLevelContainer.isEmpty) halt(400)
       val publishLevel = publishLevelContainer.get
-
-      val now = new Timestamp(System.currentTimeMillis)
 
       val entryId = Entries.autoInc.insert(user.id, image, publishLevel, now)
       val entry   = getEntryContainerById(entryId).get
