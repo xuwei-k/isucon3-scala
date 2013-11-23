@@ -26,20 +26,20 @@ class ScalatraBootstrap extends LifeCycle
     }
 
     val (dbConfig, dataDir) = {
-      val dir       = new File("./src/main/resources").getAbsolutePath()
-      val file      = dir + "/" + env + ".json"
-      val source    = FileUtils.readFileToString(new File(file), "utf-8")
+      val dir       = new File("./src/main/resources").getAbsolutePath
+      val fileName  = s"${dir}/${env}.json"
+      val source    = FileUtils.readFileToString(new File(fileName), "utf-8")
       val appConfig = JSON.parseFull(source).get.asInstanceOf[Map[String, Any]]
       (
-        appConfig.get("database").get.asInstanceOf[Map[String, Any]],
+        appConfig.apply("database").asInstanceOf[Map[String, Any]],
         appConfig.apply("data_dir").asInstanceOf[String]
       )
     }
 
     val db = Database.forURL(
-      "jdbc:mysql://" + dbConfig.apply("host") +
+      "jdbc:mysql://" + dbConfig.apply("host").asInstanceOf[String] +
         ":" + dbConfig.apply("port").asInstanceOf[Double].toInt +
-        "/" + dbConfig.apply("dbname"),
+        "/" + dbConfig.apply("dbname").asInstanceOf[String],
       dbConfig.apply("username").asInstanceOf[String],
       dbConfig.apply("password").asInstanceOf[String]
     )
