@@ -5,7 +5,7 @@ import com.github.m0t0k1ch1.isucon.schema._
 
 import org.scalatra._
 import org.scalatra.json._
-import org.scalatra.servlet.{FileUploadSupport, MultipartConfig, SizeConstraintExceededException}
+import org.scalatra.servlet.{FileItem, FileUploadSupport, MultipartConfig, SizeConstraintExceededException}
 
 import org.slf4j.LoggerFactory
 
@@ -156,19 +156,19 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
-  def getUserById(id: Int): Option[User] = {
+  def getUserContainerById(id: Int): Option[User] = {
     db withSession {
       Query(Users).filter(_.id === id).firstOption
     }
   }
 
-  def getEntryById(id: Int): Option[Entry] = {
+  def getEntryContainerById(id: Int): Option[Entry] = {
     db withSession {
       Query(Entries).filter(_.id === id).firstOption
     }
   }
 
-  def getEntryByImage(image: String): Option[Entry] = {
+  def getEntryContainerByImage(image: String): Option[Entry] = {
     db withSession {
       Query(Entries).filter(_.image === image).firstOption
     }
@@ -180,18 +180,30 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
-  def getUser: Option[User] = {
+  def getUpload(name: String): FileItem = {
+    val uploadContainer = Option(fileParams(name))
+    if (uploadContainer.isEmpty) halt(400)
+    uploadContainer.get
+  }
+
+  def getUserContainer: Option[User] = {
     db withSession {
       val apiKey = Option(request.getHeader("X-API-KEY")) match {
         case Some(v) => Some(v)
         case None    => cookies.get("api_key")
       }
-      val user = apiKey match {
+      val userContainer = apiKey match {
         case Some(v) => Query(Users).filter(_.apiKey === v).firstOption
         case None    => None
       }
-      user
+      userContainer
     }
+  }
+
+  def getUser: User = {
+    val userContainer = getUserContainer
+    if (userContainer.isEmpty) halt(400)
+    userContainer.get
   }
 
   before() {
@@ -220,7 +232,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val apiKey = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
 
       val userId = Users.autoInc.insert(nameContainer.get, apiKey, "default")
-      val user   = getUserById(userId).get
+      val user   = getUserContainerById(userId).get
 
       case class Result (id: Int, name:String, icon: String, api_key: String)
       new Result(user.id, user.name, uriFor("/icon/" + user.icon), user.apiKey)
@@ -229,9 +241,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   get("/me") {
     db withSession {
-      val userContainer = getUser
-      if (userContainer.isEmpty) halt(400)
-      val user = userContainer.get
+      val user = getUser
 
       case class Result (id: Int, name: String, icon: String)
       new Result(user.id, user.name, uriFor("/icon/" + user.icon))
@@ -265,14 +275,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   post("/icon") {
     db withSession {
-      val userContainer = getUser
-      if (userContainer.isEmpty) halt(400)
-      val user = userContainer.get
+      val user = getUser
 
-      val uploadContainer = Option(fileParams("image"))
-      if (uploadContainer.isEmpty) halt(400)
-      val upload = uploadContainer.get
-
+      val upload     = getUpload("image")
       val contentType = upload.getContentType
       if (contentType.isEmpty) halt(400)
       if (!isJpgOrPng(contentType.get)) halt(400)
@@ -298,14 +303,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   post("/entry") {
     db withSession {
-      val userContainer = getUser
-      if (userContainer.isEmpty) halt(400)
-      val user = userContainer.get
+      val user = getUser
 
-      val uploadContainer = Option(fileParams("image"))
-      if (uploadContainer.isEmpty) halt(400)
-      val upload = uploadContainer.get
-
+      val upload      = getUpload("image")
       val contentType = upload.getContentType
       if (contentType.isEmpty) halt(400)
       if (!isJpg(upload.getContentType.get)) halt(400)
@@ -323,7 +323,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val now = new Timestamp(System.currentTimeMillis)
 
       val entryId = Entries.autoInc.insert(user.id, image, publishLevel, now)
-      val entry   = getEntryById(entryId).get
+      val entry   = getEntryContainerById(entryId).get
 
       case class ResultUser(id: Int, name: String, icon: String)
       case class ResultEntry(id: Int, image: String, publish_level: Int, user: ResultUser)
@@ -336,9 +336,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   post("/entry/:id") {
     db withSession {
-      val userContainer = getUser
-      if (userContainer.isEmpty) halt(400)
-      val user = userContainer.get
+      val user = getUser
 
       if (params("__method") != "DELETE") halt(400)
 
@@ -346,7 +344,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       if (entryIdContainer.isEmpty) halt(404)
       val entryId = entryIdContainer.get
 
-      val entryContainer = getEntryById(entryId)
+      val entryContainer = getEntryContainerById(entryId)
       if (entryContainer.isEmpty) halt(404)
       val entry = entryContainer.get
       if (entry.user != user.id) halt(400)
@@ -360,7 +358,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   get("/image/:image") {
     db withSession {
-      val userContainer = getUser
+      val userContainer = getUserContainer
 
       val image = params("image")
       val size = params.get("size") match {
@@ -368,7 +366,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
         case None    => "l"
       }
 
-      val entryContainer = getEntryByImage(image)
+      val entryContainer = getEntryContainerByImage(image)
       if (entryContainer.isEmpty) halt(404)
       val entry = entryContainer.get
       if (!canViewEntry(entry, userContainer)) halt(404)
