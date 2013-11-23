@@ -249,6 +249,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val file = File.createTempFile("ISUCON", "")
       upload.write(file)
       val fileName = cropSquare(file.getPath, "png")
+      file.delete
 
       val icon = DigestUtils.sha256Hex(java.util.UUID.randomUUID.toString)
       if (!new File(fileName).renameTo(new File(s"${dataDir}/icon/${icon}.png"))) halt(500)
