@@ -418,7 +418,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     case class Result(users: List[ResultUser])
 
     val resultUsers = for (
-      user <-getFollowings(user.id)
+      user <- getFollowings(user.id)
     ) yield ResultUser(user.id, user.name, uriFor("/icon/" + user.icon))
     new Result(resultUsers)
   }
@@ -440,7 +440,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       case class Result(users: List[ResultUser])
 
       val resultUsers = for (
-        user <-getFollowings(user.id)
+        user <- getFollowings(user.id)
       ) yield ResultUser(user.id, user.name, uriFor("/icon/" + user.icon))
       new Result(resultUsers)
     }
@@ -463,7 +463,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       case class Result(users: List[ResultUser])
 
       val resultUsers = for (
-        user <-getFollowings(user.id)
+        user <- getFollowings(user.id)
       ) yield ResultUser(user.id, user.name, uriFor("/icon/" + user.icon))
       new Result(resultUsers)
     }
