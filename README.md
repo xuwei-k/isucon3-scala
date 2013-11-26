@@ -10,7 +10,7 @@ $ ./sbt
 > container:start
 ```
 
-before you open the applicatin, you have to create tables
+before you open the application, you have to create tables
 
 - Create Tables
 [http://localhost:8080/db/create-tables](http://localhost:8080/db/create-tables)
