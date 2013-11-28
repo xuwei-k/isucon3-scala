@@ -20,6 +20,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.codec.digest.DigestUtils
 import org.json4s.{DefaultFormats, Formats}
 import scala.sys.process.Process
+import scala.util.control.Breaks
 
 case class Isucon(db: Database, dataDir: String) extends ScalatraServlet with IsuconRoutes
 
@@ -237,12 +238,17 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     val end = new Timestamp(now.getTime + timeout * 1000)
 
     var entries: List[Entry] = Nil
-    while (now.before(end)) {
-      entries = latestEntryContainer match {
-        case Some(v) => getLatestEntriesAgain(userId, v.toInt)
-        case None    => getLatestEntriesFirstTime(userId)
+
+    val loop = new Breaks
+    loop.breakable {
+      while (now.before(end)) {
+        entries = latestEntryContainer match {
+          case Some(v) => getLatestEntriesAgain(userId, v.toInt)
+          case None    => getLatestEntriesFirstTime(userId)
+        }
+        if (!entries.isEmpty) loop.break
+        Process("sleep ${interval}") !
       }
-      if (entries.isEmpty) Process("sleep ${interval}") !
     }
 
     entries
