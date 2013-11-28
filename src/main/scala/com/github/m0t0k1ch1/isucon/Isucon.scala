@@ -201,32 +201,6 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
-  def getUpload(name: String): FileItem = {
-    val uploadContainer = Option(fileParams(name))
-    if (uploadContainer.isEmpty) halt(400)
-    uploadContainer.get
-  }
-
-  def getUserContainer: Option[User] = {
-    db withSession {
-      val apiKey = Option(request.getHeader("X-API-KEY")) match {
-        case Some(v) => Some(v)
-        case None    => cookies.get("api_key")
-      }
-      val userContainer = apiKey match {
-        case Some(v) => Query(Users).filter(_.apiKey === v).firstOption
-        case None    => None
-      }
-      userContainer
-    }
-  }
-
-  def getUser: User = {
-    val userContainer = getUserContainer
-    if (userContainer.isEmpty) halt(400)
-    userContainer.get
-  }
-
   def getFollowings(user: Int): List[User] = {
     db withSession {
       implicit val getUserResult = GetResult(r => User(r.<<, r.<<, r.<<, r.<<))
@@ -266,6 +240,32 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       implicit val getEntryResult = GetResult(r => Entry(r.<<, r.<<, r.<<, r.<<, r.<<))
       sql"SELECT * FROM (SELECT * FROM entries WHERE (user = ${userId} OR publish_level = 2 OR (publish_level = 1 AND user IN (SELECT target FROM follow_map WHERE user = ${userId}))) AND id > ${latestEntry} ORDER BY id LIMIT 30) AS e ORDER BY e.id DESC".as[Entry].list
     }
+  }
+
+  def getUpload(name: String): FileItem = {
+    val uploadContainer = Option(fileParams(name))
+    if (uploadContainer.isEmpty) halt(400)
+    uploadContainer.get
+  }
+
+  def getUserContainer: Option[User] = {
+    db withSession {
+      val apiKey = Option(request.getHeader("X-API-KEY")) match {
+        case Some(v) => Some(v)
+        case None    => cookies.get("api_key")
+      }
+      val userContainer = apiKey match {
+        case Some(v) => Query(Users).filter(_.apiKey === v).firstOption
+        case None    => None
+      }
+      userContainer
+    }
+  }
+
+  def getUser: User = {
+    val userContainer = getUserContainer
+    if (userContainer.isEmpty) halt(400)
+    userContainer.get
   }
 
   before() {
