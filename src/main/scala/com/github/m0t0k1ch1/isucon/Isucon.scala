@@ -233,6 +233,35 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
     }
   }
 
+  def getTimeline(userId: Int, latestEntryContainer: Option[String]): List[Entry] = {
+    val end = new Timestamp(now.getTime + timeout * 1000)
+
+    var entries: List[Entry] = Nil
+    while (now.before(end)) {
+      entries = latestEntryContainer match {
+        case Some(v) => getLatestEntriesAgain(userId, v.toInt)
+        case None    => getLatestEntriesFirstTime(userId)
+      }
+      if (entries.isEmpty) Process("sleep ${interval}") !
+    }
+
+    entries
+  }
+
+  def getLatestEntriesFirstTime(userId: Int): List[Entry] = {
+    db withSession {
+      implicit val getEntryResult = GetResult(r => Entry(r.<<, r.<<, r.<<, r.<<, r.<<))
+      sql"SELECT * FROM entries WHERE (user = ${userId} OR publish_level = 2 OR (publish_level = 1 AND user IN (SELECT target FROM follow_map WHERE user = ${userId}))) ORDER BY id DESC LIMIT 30".as[Entry].list
+    }
+  }
+
+  def getLatestEntriesAgain(userId: Int, latestEntry: Int): List[Entry] = {
+    db withSession {
+      implicit val getEntryResult = GetResult(r => Entry(r.<<, r.<<, r.<<, r.<<, r.<<))
+      sql"SELECT * FROM (SELECT * FROM entries WHERE (user = ${userId} OR publish_level = 2 OR (publish_level = 1 AND user IN (SELECT target FROM follow_map WHERE user = ${userId}))) AND id > ${latestEntry} ORDER BY id LIMIT 30) AS e ORDER BY e.id DESC".as[Entry].list
+    }
+  }
+
   before() {
     contentType = formats("json")
   }
@@ -466,6 +495,43 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
         user <- getFollowings(user.id)
       ) yield ResultUser(user.id, user.name, uriFor("/icon/" + user.icon))
       new Result(resultUsers)
+    }
+  }
+
+  get("/timeline") {
+    db withSession {
+      val user = getUser
+
+      val latestEntryContainer = params.get("latest_entry")
+      if (!latestEntryContainer.isEmpty && toInt(latestEntryContainer.get).isEmpty) halt(404)
+
+      val entries = getTimeline(user.id, latestEntryContainer)
+
+      val latestEntry = entries match {
+        case v if !v.isEmpty                                 => entries.head.id
+        case v if v.isEmpty && !latestEntryContainer.isEmpty => latestEntryContainer.get.toInt
+        case _                                               => 0
+      }
+
+      case class ResultUser(id: Int, name: String, icon: String)
+      case class ResultEntry(id: Int, image: String, publish_level: Int, user: ResultUser)
+      case class Result(latest_entry: Int, entries: List[ResultEntry])
+
+      response.setHeader("Cache-Control", "no-cache")
+      val resultEntries = for (
+        entry <- entries;
+        user = getUserContainerById(entry.user).get
+      ) yield ResultEntry(
+        entry.id,
+        uriFor("/image/" + entry.image),
+        entry.publishLevel,
+        ResultUser(
+          user.id,
+          user.name,
+          uriFor("/icon/" + user.icon)
+        )
+      )
+      new Result(latestEntry, resultEntries)
     }
   }
 }
