@@ -220,7 +220,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
           case Some(v) => getLatestEntriesAgain(userId, v.toInt)
           case None    => getLatestEntriesFirstTime(userId)
         }
-        if (!entries.isEmpty) loop.break
+        if (entries.nonEmpty) loop.break
         Process("sleep ${interval}") !
       }
     }
@@ -509,14 +509,14 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val user = getUser
 
       val latestEntryContainer = params.get("latest_entry")
-      if (!latestEntryContainer.isEmpty && toInt(latestEntryContainer.get).isEmpty) halt(404)
+      if (latestEntryContainer.nonEmpty && toInt(latestEntryContainer.get).isEmpty) halt(404)
 
       val entries = getTimeline(user.id, latestEntryContainer)
 
       val latestEntry = entries match {
-        case v if !v.isEmpty                                 => entries.head.id
-        case v if v.isEmpty && !latestEntryContainer.isEmpty => latestEntryContainer.get.toInt
-        case _                                               => 0
+        case v if v.nonEmpty                                  => entries.head.id
+        case v if v.isEmpty && latestEntryContainer.isDefined => latestEntryContainer.get.toInt
+        case _                                                => 0
       }
 
       case class ResultUser(id: Int, name: String, icon: String)
