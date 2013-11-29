@@ -155,9 +155,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   def canViewEntry(entry: Entry, userContainer: Option[User]): Boolean = {
     entry.publishLevel match {
-      case 0 if userContainer.isDefined && entry.user == userContainer.get.id            => true
-      case 1 if userContainer.isDefined && entry.user == userContainer.get.id            => true
-      case 1 if userContainer.isDefined && isFollowing(userContainer.get.id, entry.user) => true
+      case 0 if userContainer.nonEmpty && entry.user == userContainer.get.id            => true
+      case 1 if userContainer.nonEmpty && entry.user == userContainer.get.id            => true
+      case 1 if userContainer.nonEmpty && isFollowing(userContainer.get.id, entry.user) => true
       case 2 => true
       case _ => false
     }
@@ -463,9 +463,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val user = getUser
 
       val targetsContainer = multiParams.get("target")
-      if (targetsContainer.isDefined) {
+      if (targetsContainer.nonEmpty) {
         for (target <- targetsContainer.get) {
-          if (toInt(target).isDefined) {
+          if (toInt(target).nonEmpty) {
             FollowMaps.insert(FollowMap(user.id, target.toInt, now))
           }
         }
@@ -486,9 +486,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val user = getUser
 
       val targetsContainer = multiParams.get("target")
-      if (targetsContainer.isDefined) {
+      if (targetsContainer.nonEmpty) {
         for (target <- targetsContainer.get) {
-          if (toInt(target).isDefined) {
+          if (toInt(target).nonEmpty) {
             deleteFollowMapByUserAndTarget(user.id, target.toInt)
           }
         }
@@ -509,14 +509,14 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val user = getUser
 
       val latestEntryContainer = params.get("latest_entry")
-      if (latestEntryContainer.isDefined && toInt(latestEntryContainer.get).isEmpty) halt(404)
+      if (latestEntryContainer.nonEmpty && toInt(latestEntryContainer.get).isEmpty) halt(404)
 
       val entries = getTimeline(user.id, latestEntryContainer)
 
       val latestEntry = entries match {
-        case v if v.nonEmpty                                  => entries.head.id
-        case v if v.isEmpty && latestEntryContainer.isDefined => latestEntryContainer.get.toInt
-        case _                                                => 0
+        case v if v.nonEmpty                                 => entries.head.id
+        case v if v.isEmpty && latestEntryContainer.nonEmpty => latestEntryContainer.get.toInt
+        case _                                               => 0
       }
 
       case class ResultUser(id: Int, name: String, icon: String)
