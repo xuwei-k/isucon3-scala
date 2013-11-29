@@ -154,9 +154,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   def canViewEntry(entry: Entry, userContainer: Option[User]): Boolean = {
     entry.publishLevel match {
-      case 0 if !userContainer.isEmpty && entry.user == userContainer.get.id            => true
-      case 1 if !userContainer.isEmpty && entry.user == userContainer.get.id            => true
-      case 1 if !userContainer.isEmpty && isFollowing(userContainer.get.id, entry.user) => true
+      case 0 if userContainer.isDefined && entry.user == userContainer.get.id            => true
+      case 1 if userContainer.isDefined && entry.user == userContainer.get.id            => true
+      case 1 if userContainer.isDefined && isFollowing(userContainer.get.id, entry.user) => true
       case 2 => true
       case _ => false
     }
@@ -428,9 +428,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val user = getUser
 
       val targetsContainer = multiParams.get("target")
-      if (!targetsContainer.isEmpty) {
+      if (targetsContainer.isDefined) {
         for (target <- targetsContainer.get) {
-          if (!toInt(target).isEmpty) {
+          if (toInt(target).isDefined) {
             FollowMaps.insert(FollowMap(user.id, target.toInt, now))
           }
         }
@@ -451,9 +451,9 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val user = getUser
 
       val targetsContainer = multiParams.get("target")
-      if (!targetsContainer.isEmpty) {
+      if (targetsContainer.isDefined) {
         for (target <- targetsContainer.get) {
-          if (!toInt(target).isEmpty) {
+          if (toInt(target).isDefined) {
             deleteFollowMapByUserAndTarget(user.id, target.toInt)
           }
         }
