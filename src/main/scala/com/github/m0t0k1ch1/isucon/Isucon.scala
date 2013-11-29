@@ -509,7 +509,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
       val user = getUser
 
       val latestEntryContainer = params.get("latest_entry")
-      if (latestEntryContainer.nonEmpty && toInt(latestEntryContainer.get).isEmpty) halt(404)
+      if (latestEntryContainer.isDefined && toInt(latestEntryContainer.get).isEmpty) halt(404)
 
       val entries = getTimeline(user.id, latestEntryContainer)
 
