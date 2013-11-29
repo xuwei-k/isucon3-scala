@@ -1,4 +1,4 @@
-package com.github.m0t0k1ch1
+package com.github.m0t0k1ch1.isucon
 
 import org.scalatra.test.specs2._
 
