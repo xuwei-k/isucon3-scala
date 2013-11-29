@@ -66,7 +66,7 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
 
   def convert(orig: String, ext: String, w: Int, h: Int): Array[Byte] = {
     val file        = File.createTempFile("ISUCON", "")
-    val newFileName = file.getPath + ".${ext}"
+    val newFileName = file.getPath + s".${ext}"
 
     Process(s"convert -geometry ${w}x${h} ${orig} ${newFileName}") !
 
@@ -211,21 +211,23 @@ trait IsuconRoutes extends IsuconStack with JacksonJsonSupport with FileUploadSu
   def getTimeline(userId: Int, latestEntryContainer: Option[String]): List[Entry] = {
     val end = new Timestamp(now.getTime + timeout * 1000)
 
-    var entries: List[Entry] = Nil
-
-    val loop = new Breaks
-    loop.breakable {
-      while (now.before(end)) {
-        entries = latestEntryContainer match {
+    @annotation.tailrec
+    def loop(): List[Entry] = {
+      if(now.before(end)) {
+        val entries = latestEntryContainer match {
           case Some(v) => getLatestEntriesAgain(userId, v.toInt)
           case None    => getLatestEntriesFirstTime(userId)
         }
-        if (entries.nonEmpty) loop.break
-        Process("sleep ${interval}") !
-      }
+        if (entries.nonEmpty){
+          entries
+        }else{
+          Thread.sleep(1000 * interval)
+          loop()
+        }
+      }else Nil
     }
 
-    entries
+    loop()
   }
 
   def getLatestEntriesFirstTime(userId: Int): List[Entry] = {
